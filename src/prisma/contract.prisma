@@ -3,8 +3,14 @@
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
+  emailVerified DateTime?
+  image     String?
   username  String?
   name      String?
+  googleId  String?  @unique
+  accessToken String?
+  refreshToken String?
+  expiresAt   DateTime?
   posts     Post[]
   createdAt TimestamptzString @default(now())
   updatedAt temporal.updatedAtString()
