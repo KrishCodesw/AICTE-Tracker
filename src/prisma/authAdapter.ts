@@ -1,19 +1,26 @@
-
 import type { Adapter, AdapterUser, AdapterAccount } from "next-auth/adapters";
 import { Temporal } from "temporal-polyfill";
-import { db } from "./db.ts";
+import { db } from "./db";
+
+interface DatabaseUser {
+  id: number | string;
+  email: string;
+  name?: string | null;
+  image?: string | null;
+  emailVerified?: Temporal.Instant | null;
+}
 
 function toTemporalInstant(date: Date | null | undefined) {
   if (!date) return null;
   return Temporal.Instant.fromEpochMilliseconds(date.getTime());
 }
 
-function toDate(instant: any): Date | null {
+function toDate(instant: Temporal.Instant | null | undefined): Date | null {
   if (!instant) return null;
   return new Date(instant.epochMilliseconds);
 }
 
-function formatUser(user: any): AdapterUser {
+function formatUser(user: DatabaseUser): AdapterUser {
   return {
     id: String(user.id),
     email: user.email,
@@ -68,7 +75,7 @@ export function CustomPrismaAdapter(): Adapter {
       return null;
     },
 
-    async linkAccount(account:AdapterAccount) {
+    async linkAccount(account: AdapterAccount) {
       const numericId = Number(account.userId);
       if (!isNaN(numericId) && account.provider === "google") {
         await db.orm.public.User.where({ id: numericId }).update({
@@ -76,8 +83,8 @@ export function CustomPrismaAdapter(): Adapter {
           accessToken: account.access_token ?? null,
           refreshToken: account.refresh_token ?? null,
           expiresAt: account.expires_at
-        ? Temporal.Instant.fromEpochMilliseconds(account.expires_at * 1000)
-        : null,
+            ? Temporal.Instant.fromEpochMilliseconds(account.expires_at * 1000)
+            : null,
         });
       }
       return account;

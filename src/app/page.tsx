@@ -3,6 +3,7 @@
 import { useSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { LogoutButton } from "@/components/LogoutButton";
+import Link from "next/link";
 interface User {
   id: string | number;
   email: string;
@@ -17,28 +18,18 @@ export default function Home() {
   const [usersLoading, setUsersLoading] = useState(true);
 
   useEffect(() => {
-    if (status === "loading") {
-      setUsersLoading(false);
-      return;
-    }
+    if (status === "loading") return;
 
     let isMounted = true;
     async function fetchUsers() {
       try {
         const res = await fetch("/api/users");
-        if (!res.ok) throw new Error("Failed to fetch");
-        const fetchedUsers = await res.json();
-        if (isMounted) {
-          setUsers(fetchedUsers);
-        }
-      } catch {
-        if (isMounted) {
-          setUsers([]);
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) setUsers(data);
         }
       } finally {
-        if (isMounted) {
-          setUsersLoading(false);
-        }
+        if (isMounted) setUsersLoading(false);
       }
     }
 
@@ -75,8 +66,8 @@ export default function Home() {
         )}
         {status === "unauthenticated" && (
           <p>
-            You are not signed in. <a href="/api/auth/signin">Sign in</a> to
-            enable Google OAuth.
+            You are not signed in. <Link href="/api/auth/signin">Sign in</Link>{" "}
+            to enable Google OAuth.
           </p>
         )}
       </div>
