@@ -1,13 +1,58 @@
-export const dynamic = "force-dynamic";
+"use client";
 
-export default async function Home() {
+import { useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
+import { LogoutButton } from "@/components/LogoutButton";
+interface User {
+  id: string | number;
+  email: string;
+  username?: string | null;
+  name?: string | null;
+  createdAt?: string | Date | null;
+}
 
-  const { listUsers } = await import("../prisma/users");
+export default function Home() {
+  const { data: session, status } = useSession();
+  const [users, setUsers] = useState<User[]>([]);
+  const [usersLoading, setUsersLoading] = useState(true);
+
+  useEffect(() => {
+    if (status === "loading") {
+      setUsersLoading(false);
+      return;
+    }
+
+    let isMounted = true;
+    async function fetchUsers() {
+      try {
+        const res = await fetch("/api/users");
+        if (!res.ok) throw new Error("Failed to fetch");
+        const fetchedUsers = await res.json();
+        if (isMounted) {
+          setUsers(fetchedUsers);
+        }
+      } catch {
+        if (isMounted) {
+          setUsers([]);
+        }
+      } finally {
+        if (isMounted) {
+          setUsersLoading(false);
+        }
+      }
+    }
+
+    fetchUsers();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [status]);
+
   const formatter = new Intl.DateTimeFormat("en", {
     dateStyle: "medium",
     timeStyle: "short",
   });
-  const users = await listUsers(10).catch(() => undefined);
 
   return (
     <main className="shell">
@@ -16,24 +61,39 @@ export default async function Home() {
 
         <h1>Users from your database, loaded on the server.</h1>
         <p className="lede">
-          This page reads from <code>src/app/page.tsx</code> using the Prisma 8 helper in{" "}
-          <code>src/prisma/users.ts</code>.
+          This page reads from <code>src/app/page.tsx</code> using the Prisma 8
+          helper in <code>src/prisma/users.ts</code>.
         </p>
+        {status === "loading" && <p>Loading session...</p>}
+        {status === "authenticated" && (
+          <div>
+            <h2>
+              Signed in as {session?.user?.name ?? session?.user?.email}
+              <LogoutButton />
+            </h2>
+          </div>
+        )}
+        {status === "unauthenticated" && (
+          <p>
+            You are not signed in. <a href="/api/auth/signin">Sign in</a> to
+            enable Google OAuth.
+          </p>
+        )}
       </div>
 
       <section className="panel">
         <div className="panelHeader">
           <h2>Seeded users</h2>
-          <span>{users?.length ?? 0} total</span>
+          <span>{users.length} total</span>
         </div>
 
-        {!users ? (
-          <p className="empty">
-            Could not query users yet. Run <code>contract:emit</code> and apply your schema,
-            then refresh.
-          </p>
+        {usersLoading ? (
+          <p className="empty">Loading users...</p>
         ) : users.length === 0 ? (
-          <p className="empty">No users found.</p>
+          <p className="empty">
+            Could not query users yet. Run <code>contract:emit</code> and apply
+            your schema, then refresh.
+          </p>
         ) : (
           <ul className="users">
             {users.map((user) => (
@@ -43,7 +103,7 @@ export default async function Home() {
                   <p>{user.username ? `@${user.username}` : user.email}</p>
                 </div>
                 {user.createdAt ? (
-                  <time dateTime={user.createdAt}>
+                  <time dateTime={String(user.createdAt)}>
                     {formatter.format(new Date(user.createdAt))}
                   </time>
                 ) : (
@@ -54,7 +114,6 @@ export default async function Home() {
           </ul>
         )}
       </section>
-
     </main>
   );
 }
